@@ -461,6 +461,80 @@
     .project-card:nth-child(2) .card-btn:hover { background: var(--cyan); color: white; transform: scale(1.05); }
     .project-card:nth-child(3) .card-btn:hover { background: var(--yellow); color: #2d3436; transform: scale(1.05); }
 
+    /* ===== Got an Idea? (suggestion box) ===== */
+    .idea-section {
+      max-width: 700px;
+      margin: 90px auto 0;
+      padding: 0 20px;
+      text-align: center;
+    }
+
+    .idea-card {
+      background: #ffffff;
+      border-radius: 32px;
+      padding: 45px 35px;
+      box-shadow: 0 12px 24px rgba(0,0,0,0.04);
+      border: 4px solid #ffffff;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      opacity: 0;
+      transform: translateY(30px);
+    }
+
+    .idea-card.reveal {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .idea-card:hover {
+      border-color: var(--pink);
+      box-shadow: 0 15px 35px rgba(255, 94, 156, 0.25);
+      transform: translateY(-8px) scale(1.02);
+    }
+
+    .idea-card .idea-icon {
+      font-size: 3.2rem;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .idea-card h2 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 1.9rem;
+      margin-bottom: 14px;
+      color: var(--ink);
+    }
+
+    .idea-card p {
+      font-size: 1.05rem;
+      color: #718096;
+      max-width: 520px;
+      margin: 0 auto 18px;
+      line-height: 1.7;
+    }
+
+    .idea-card .email-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--purple);
+      background: #f3f2fb;
+      padding: 14px 32px;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: 3px solid transparent;
+    }
+
+    .idea-card .email-link:hover {
+      background: linear-gradient(45deg, var(--pink), var(--purple));
+      color: #ffffff;
+      transform: scale(1.06);
+      box-shadow: 0 10px 20px rgba(127, 92, 255, 0.3);
+    }
+
     /* ===== Footer ===== */
     footer {
       background-color: #1e1b3a;
@@ -602,6 +676,16 @@
     </div>
   </section>
 
+  <!-- GOT AN IDEA? -->
+  <section class="idea-section">
+    <div class="idea-card">
+      <span class="idea-icon">💡</span>
+      <h2>Got an Idea?</h2>
+      <p>If you have any suggestions, ideas, or a game idea to be built, mail me and I might just bring it to life! 🚀</p>
+      <a href="mailto:2arfacodes@gmail.com" class="email-link">✉️ 2arfacodes@gmail.com</a>
+    </div>
+  </section>
+
   <!-- FOOTER -->
   <footer>
     <span class="footer-emoji">💖 ⚡ 🚀</span>
@@ -645,7 +729,7 @@
     setTimeout(animateCounters, 500);
 
     // ---- Scroll reveal for cards & badges ----
-    const revealTargets = document.querySelectorAll('.project-card, .badge');
+    const revealTargets = document.querySelectorAll('.project-card, .badge, .idea-card');
     const io = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
