@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monster Dodger — by Arfa</title>
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+     A tiny "design system" so colors/fonts are defined once and
+     reused everywhere. Change these to re-skin the whole game.
+     ============================================================ */
+  :root{
+    --bg-deep:      #0b0e1a;   /* near-black night sky */
+    --bg-panel:     #131829;   /* HUD / card background */
+    --accent-moon:  #5ee7ff;   /* player glow / cyan */
+    --accent-danger:#ff4d6d;   /* monster magenta-red */
+    --accent-warn:  #ffb703;   /* combo / warning amber */
+    --text-soft:    #c9c6ff;   /* lavender text */
+    --text-dim:     #6d7291;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg-deep);
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Arcade display face for headings/score, loaded from Google Fonts */
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  .pixel { font-family: 'Press Start 2P', monospace; }
+
+  #game-wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  canvas {
+    background: radial-gradient(ellipse at 50% 0%, #171c33 0%, #0b0e1a 70%);
+    display: block;
+    border: 2px solid var(--bg-panel);
+    box-shadow: 0 0 40px rgba(94,231,255,0.08);
+    touch-action: none; /* stop mobile scroll/zoom while playing */
+  }
+
+  /* ---------------- HUD (score / lives) ---------------- */
+  #hud {
+    position: absolute;
+    top: 14px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 24px;
+    pointer-events: none;
+    color: var(--text-soft);
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+  #hud span.value { color: var(--accent-warn); }
+
+  /* ---------------- Overlays (start / game over) ---------------- */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: rgba(11,14,26,0.88);
+    text-align: center;
+    padding: 20px;
+  }
+  .overlay h1 {
+    color: var(--accent-danger);
+    font-size: clamp(18px, 4vw, 30px);
+    text-shadow: 0 0 12px rgba(255,77,109,0.6);
+    margin: 0;
+  }
+  .overlay p {
+    color: var(--text-soft);
+    font-size: 12px;
+    line-height: 1.8;
+    max-width: 420px;
+    margin: 0;
+  }
+  .overlay button {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    background: var(--accent-moon);
+    color: #0b0e1a;
+    border: none;
+    padding: 14px 22px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(94,231,255,0.5);
+    transition: transform 0.15s ease;
+  }
+  .overlay button:hover { transform: scale(1.06); }
+  .hidden { display: none !important; }
+
+  .home-btn {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    background: var(--bg-panel);
+    color: var(--text-soft);
+    border: 1px solid var(--text-dim);
+    border-radius: 6px;
+    padding: 8px 14px;
+    cursor: pointer;
+    text-decoration: none;
+    letter-spacing: 1px;
+    transition: all 0.2s ease;
+    z-index: 10;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .home-btn:hover {
+    background: var(--accent-moon);
+    color: #0b0e1a;
+    border-color: var(--accent-moon);
+    box-shadow: 0 0 16px rgba(94,231,255,0.4);
+    transform: scale(1.05);
+  }
+
+  #credit {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 1px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrap">
+
+  <canvas id="game" width="480" height="640"></canvas>
+
+  <!-- Live score / lives display, sits on top of the canvas -->
+  <div id="hud">
+    <div>SCORE <span class="value" id="score">0</span></div>
+    <div>BEST <span class="value" id="best">0</span></div>
+    <div>LIVES <span class="value" id="lives">3</span></div>
+  </div>
+
+  <!-- Start screen -->
+  <div id="start-overlay" class="overlay">
+    <h1 class="pixel">MONSTER DODGER</h1>
+    <p>
+      Move with ARROW KEYS or A / D (or drag on mobile).<br>
+      Dodge the falling monsters. Every miss costs a life.<br>
+      Speed increases the longer you survive.
+    </p>
+    <button id="start-btn" class="pixel">START</button>
+  </div>
+
+  <!-- Game over screen -->
+  <div id="over-overlay" class="overlay hidden">
+    <h1 class="pixel">GAME OVER</h1>
+    <p id="final-score-text">Score: 0</p>
+    <button id="restart-btn" class="pixel">PLAY AGAIN</button>
+  </div>
+
+  <a href="index.html" class="home-btn">🏡 HOME</a>
+
+  <div id="credit">Made by Arfa</div>
+
+</div>
+
+<script>
+/* =================================================================
+   MONSTER DODGER — game logic
+   -----------------------------------------------------------------
+   Structure of this script (read top to bottom):
+     1. Canvas + DOM setup
+     2. Game state (player, monsters, score, lives)
+     3. Input handling (keyboard + touch/mouse drag)
+     4. Spawning logic (creates new falling monsters over time)
+     5. Update loop (moves everything, checks collisions)
+     6. Draw loop (renders player, monsters, background)
+     7. Main loop (requestAnimationFrame ties update+draw together)
+     8. Start / Game Over / Restart wiring
+   ================================================================= */
+
+// ---- 1. CANVAS + DOM SETUP ----
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+const scoreEl = document.getElementById('score');
+const bestEl = document.getElementById('best');
+const livesEl = document.getElementById('lives');
+const startOverlay = document.getElementById('start-overlay');
+const overOverlay = document.getElementById('over-overlay');
+const finalScoreText = document.getElementById('final-score-text');
+
+// ---- 2. GAME STATE ----
+// Keeping all mutable game data in one object makes it easy to
+// reset everything at once when the player restarts.
+let state = null;
+
+function createInitialState() {
+  return {
+    player: {
+      x: W / 2,
+      y: H - 60,
+      radius: 16,
+      speed: 6.5,        // pixels moved per frame when a direction key is held
+    },
+    monsters: [],        // array of {x, y, radius, speed, color}
+    keys: {},            // tracks which movement keys are currently held
+    score: 0,
+    lives: 3,
+    spawnTimer: 0,
+    spawnInterval: 70,   // frames between spawns; shrinks as difficulty rises
+    elapsedFrames: 0,
+    running: false,
+    gameOver: false,
+  };
+}
+
+let best = Number(localStorage.getItem('monsterDodgerBest') || 0);
+bestEl.textContent = best;
+
+// ---- 3. INPUT HANDLING ----
+window.addEventListener('keydown', (e) => {
+  if (!state) return;
+  state.keys[e.key] = true;
+});
+window.addEventListener('keyup', (e) => {
+  if (!state) return;
+  state.keys[e.key] = false;
+});
+
+// Simple drag-to-move support for touch/mouse, so the game is
+// playable on phones without a keyboard.
+let dragging = false;
+function pointerToPlayerX(clientX) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  return (clientX - rect.left) * scaleX;
+}
+canvas.addEventListener('mousedown', (e) => { dragging = true; });
+window.addEventListener('mouseup', () => { dragging = false; });
+window.addEventListener('mousemove', (e) => {
+  if (dragging && state && state.running) {
+    state.player.x = pointerToPlayerX(e.clientX);
+  }
+});
+canvas.addEventListener('touchstart', () => { dragging = true; }, { passive: true });
+window.addEventListener('touchend', () => { dragging = false; });
+window.addEventListener('touchmove', (e) => {
+  if (state && state.running && e.touches[0]) {
+    state.player.x = pointerToPlayerX(e.touches[0].clientX);
+  }
+}, { passive: true });
+
+function isLeftHeld() {
+  return state.keys['ArrowLeft'] || state.keys['a'] || state.keys['A'];
+}
+function isRightHeld() {
+  return state.keys['ArrowRight'] || state.keys['d'] || state.keys['D'];
+}
+
+// ---- 4. SPAWNING LOGIC ----
+const MONSTER_COLORS = ['#ff4d6d', '#ffb703', '#c084fc', '#ff8fa3'];
+
+function spawnMonster() {
+  const radius = 14 + Math.random() * 16;
+  const x = radius + Math.random() * (W - radius * 2);
+  // Monsters speed up slowly as elapsedFrames grows, capped so it
+  // never becomes literally unplayable.
+  const difficultyBonus = Math.min(state.elapsedFrames / 900, 4);
+  const speed = 2 + Math.random() * 2 + difficultyBonus;
+  state.monsters.push({
+    x, y: -radius,
+    radius, speed,
+    color: MONSTER_COLORS[Math.floor(Math.random() * MONSTER_COLORS.length)],
+  });
+}
+
+// ---- 5. UPDATE LOOP ----
+function update() {
+  const s = state;
+  s.elapsedFrames++;
+
+  // -- move player --
+  if (isLeftHeld()) s.player.x -= s.player.speed;
+  if (isRightHeld()) s.player.x += s.player.speed;
+  s.player.x = Math.max(s.player.radius, Math.min(W - s.player.radius, s.player.x));
+
+  // -- spawn timing: interval shrinks slowly to ramp difficulty --
+  s.spawnInterval = Math.max(22, 70 - Math.floor(s.elapsedFrames / 200));
+  s.spawnTimer++;
+  if (s.spawnTimer >= s.spawnInterval) {
+    s.spawnTimer = 0;
+    spawnMonster();
+  }
+
+  // -- move monsters, check dodges + collisions --
+  for (let i = s.monsters.length - 1; i >= 0; i--) {
+    const m = s.monsters[i];
+    m.y += m.speed;
+
+    // collision check: simple circle-vs-circle distance test
+    const dx = m.x - s.player.x;
+    const dy = m.y - s.player.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < m.radius + s.player.radius) {
+      s.monsters.splice(i, 1);
+      loseLife();
+      continue;
+    }
+
+    // monster fell past the bottom: successfully dodged, award points
+    if (m.y - m.radius > H) {
+      s.monsters.splice(i, 1);
+      s.score += 1;
+      scoreEl.textContent = s.score;
+    }
+  }
+}
+
+function loseLife() {
+  state.lives--;
+  livesEl.textContent = state.lives;
+  if (state.lives <= 0) {
+    endGame();
+  }
+}
+
+function endGame() {
+  state.running = false;
+  state.gameOver = true;
+  if (state.score > best) {
+    best = state.score;
+    localStorage.setItem('monsterDodgerBest', best);
+    bestEl.textContent = best;
+  }
+  finalScoreText.textContent = 'Score: ' + state.score;
+  overOverlay.classList.remove('hidden');
+}
+
+// ---- 6. DRAW LOOP ----
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // subtle starfield background for atmosphere
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  for (let i = 0; i < 40; i++) {
+    const sx = (i * 137) % W;
+    const sy = (i * 71 + (state.elapsedFrames * 0.3)) % H;
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+
+  // player: glowing circle
+  ctx.beginPath();
+  ctx.arc(state.player.x, state.player.y, state.player.radius, 0, Math.PI * 2);
+  ctx.fillStyle = '#5ee7ff';
+  ctx.shadowColor = '#5ee7ff';
+  ctx.shadowBlur = 18;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // monsters: simple spiky circles so they read as "monsters" not just dots
+  state.monsters.forEach((m) => {
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+    ctx.fillStyle = m.color;
+    ctx.shadowColor = m.color;
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // eyes for personality
+    ctx.fillStyle = '#0b0e1a';
+    ctx.beginPath();
+    ctx.arc(m.x - m.radius * 0.35, m.y - m.radius * 0.1, m.radius * 0.14, 0, Math.PI * 2);
+    ctx.arc(m.x + m.radius * 0.35, m.y - m.radius * 0.1, m.radius * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ---- 7. MAIN LOOP ----
+function loop() {
+  if (state && state.running) {
+    update();
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ---- 8. START / GAME OVER / RESTART WIRING ----
+function startGame() {
+  state = createInitialState();
+  state.running = true;
+  scoreEl.textContent = 0;
+  livesEl.textContent = 3;
+  startOverlay.classList.add('hidden');
+  overOverlay.classList.add('hidden');
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+</script>
+
+</body>
+</html>
